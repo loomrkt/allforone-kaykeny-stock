@@ -1,0 +1,97 @@
+"use client";
+
+import { getDepots } from "@/api/depot";
+import LoadingData from "@/components/common/loadingData";
+import { DataTable } from "@/components/data-table";
+import { Pagination } from "@/components/ui/pagination";
+import type Depot from "@/interfaces/depot";
+import type { ApiParameters } from "@/interfaces/global";
+import { useQuery } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Columns } from "./columns";
+import { DepotCardDetails } from "./depotDetailsModal";
+import { SupplierCard } from "./supplieGridLIst";
+
+interface ListDepotProps {
+  params: ApiParameters;
+  setParams: (params: ApiParameters) => void;
+  search: string;
+}
+
+function ListDepotPage({ params, setParams, search }: ListDepotProps) {
+  const [selectedDepot, setSelectedDepot] = useState<Depot | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [totalPage, setTotalPage] = useState<number>(0);
+
+  const finalParams = { ...params, isSupplier: true, search };
+
+  const { data: depotData, isLoading } = useQuery({
+    queryKey: ["depots", finalParams],
+    queryFn: () => getDepots(finalParams),
+  });
+
+  const handleDepotClick = useCallback((depot: Depot) => {
+    setSelectedDepot(depot);
+    setIsModalOpen(true);
+  }, []);
+
+  const handleCloseModal = useCallback(() => {
+    setSelectedDepot(null);
+    setIsModalOpen(false);
+  }, []);
+
+  const columns = useMemo(() => Columns(handleDepotClick), [handleDepotClick]);
+
+  useEffect(() => {
+    if (depotData?.meta?.total && params.limit) {
+      setTotalPage(Math.ceil(depotData.meta.total / params.limit));
+    }
+  }, [depotData?.meta, params.limit]);
+
+  return (
+    <div className="w-full h-auto space-y-4 p-2 pl-1 z-10">
+      {isLoading ? (
+        <LoadingData />
+      ) : (
+        <>
+          <div className="hidden md:block">
+            <DataTable
+              columns={columns}
+              data={depotData?.data || []}
+              totalPages={totalPage}
+              currentPage={params.page ?? 1}
+              onPageChange={(page) => {
+                setParams({ ...params, page });
+              }}
+              onRowClick={handleDepotClick}
+            />
+          </div>
+
+          <div className="flex flex-col gap-4 md:hidden overflow-y-auto h-[75vh] pr-2 scroll-smooth">
+            {(depotData?.data || []).map((depot) => (
+              <SupplierCard
+                key={depot.id}
+                depot={depot}
+                onClick={handleDepotClick}
+              />
+            ))}
+            <Pagination
+              totalPages={totalPage}
+              currentPage={params.page ?? 1}
+              onPageChange={(page) => {
+                setParams({ ...params, page });
+              }}
+            />
+          </div>
+        </>
+      )}
+      <DepotCardDetails
+        depot={selectedDepot}
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+      />
+    </div>
+  );
+}
+
+export default ListDepotPage;
