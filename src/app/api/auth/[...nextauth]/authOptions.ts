@@ -56,23 +56,32 @@ export const authOptions = (
           password: { label: "Password", type: "password" },
         },
         async authorize(credentials) {
-          let session = null;
-          if (credentials?.email && credentials.password)
-            session = await login({
+          try {
+            if (!credentials?.email || !credentials.password) {
+              return null;
+            }
+
+            const session = await login({
               email: credentials.email,
               password: credentials.password,
             });
 
-          if (!session?.token) throw new Error("Identifiant invalide");
+            if (!session?.token) {
+              return null;
+            }
 
-          return {
-            id: session.id,
-            name: session.firstName + " " + session.lastName,
-            email: session.email,
-            token: session.token,
-            refreshToken: session.refreshToken,
-          };
-        },
+            return {
+              id: session.id,
+              name: `${session.firstName} ${session.lastName}`,
+              email: session.email,
+              token: session.token,
+              refreshToken: session.refreshToken,
+            };
+          } catch (error) {
+            console.error("AUTH ERROR:", error);
+            return null; // ⚠️ JAMAIS throw
+          }
+        }
       }),
     ],
   };
